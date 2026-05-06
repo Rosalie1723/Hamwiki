@@ -8,6 +8,17 @@ import { preKnowledgeCatalog } from "./data/preKnowledgeCatalog";
 import { preKnowledgePages } from "./data/preKnowledgePages";
 import collaborationGuidelinesContent from "./content/collaboration/collaboration-guidelines.md?raw";
 
+import { CopyablePreBlock } from "./components";
+import {
+  toHeadingId,
+  getHeadingText,
+  escapeRegExp,
+  filterCatalogNodes,
+  collectExpandableIds,
+  collectLeafPageIds,
+  nodeContainsPage
+} from "./utils";
+
 const developmentOrganizations = ["同济大学业余无线电协会", "杭州市艮山中学业余无线电社"];
 const developers = ["BH4HVT", "BH4GZK", "Hello-world150"];
 const contributors = ["BG5EVL", "BH8RAK"];
@@ -17,145 +28,6 @@ const collaborationPage = {
   title: "Ham Wiki 文章创作规则与参考模板",
   content: String(collaborationGuidelinesContent).trim()
 };
-
-function CopyablePreBlock({ children, ...props }) {
-  const [copied, setCopied] = useState(false);
-  const firstChild = Children.toArray(children)[0];
-  const rawCode = isValidElement(firstChild) ? firstChild.props.children : "";
-  const codeText = String(rawCode ?? "").replace(/\n$/, "");
-
-  async function copyCode() {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(codeText);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = codeText;
-        textArea.setAttribute("readonly", "");
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        textArea.remove();
-      }
-
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  return (
-    <div className="markdown-code-block">
-      <button
-        type="button"
-        className={copied ? "copy-code-btn copied" : "copy-code-btn"}
-        onClick={copyCode}
-        aria-label="复制代码"
-      >
-        {copied ? "已复制" : "复制"}
-      </button>
-      <pre {...props}>{children}</pre>
-    </div>
-  );
-}
-
-function toHeadingId(text) {
-  const normalized = text
-    .toLowerCase()
-    .trim()
-    .replace(/[\\`*_~\[\](){}<>#.:,;!?/"'|]+/g, "")
-    .replace(/\s+/g, "-");
-
-  return normalized || "section";
-}
-
-function getHeadingText(rawText) {
-  return rawText
-    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-    .replace(/[`*_~]+/g, "")
-    .trim();
-}
-
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function includesKeyword(page, keyword) {
-  const normalizedKeyword = keyword.trim().toLowerCase();
-  if (!normalizedKeyword) {
-    return true;
-  }
-
-  const content = [page.title, page.content].join(" ").toLowerCase();
-
-  return content.includes(normalizedKeyword);
-}
-
-function filterCatalogNodes(nodes, pageById, keyword) {
-  return nodes.reduce((accumulator, node) => {
-    if (Array.isArray(node.children)) {
-      const filteredChildren = filterCatalogNodes(node.children, pageById, keyword);
-      if (filteredChildren.length > 0) {
-        accumulator.push({
-          ...node,
-          children: filteredChildren
-        });
-      }
-      return accumulator;
-    }
-
-    const page = pageById.get(node.pageId);
-    if (page && includesKeyword(page, keyword)) {
-      accumulator.push(node);
-    }
-    return accumulator;
-  }, []);
-}
-
-function collectLeafPageIds(nodes, collector = []) {
-  nodes.forEach((node) => {
-    if (Array.isArray(node.children)) {
-      collectLeafPageIds(node.children, collector);
-      return;
-    }
-
-    if (node.pageId) {
-      collector.push(node.pageId);
-    }
-  });
-
-  return collector;
-}
-
-function countLeafPages(nodes) {
-  return collectLeafPageIds(nodes, []).length;
-}
-
-function collectExpandableIds(nodes, collector = []) {
-  nodes.forEach((node) => {
-    if (Array.isArray(node.children) && node.id) {
-      collector.push(node.id);
-      collectExpandableIds(node.children, collector);
-    }
-  });
-
-  return collector;
-}
-
-function nodeContainsPage(node, targetPageId) {
-  if (!targetPageId) {
-    return false;
-  }
-
-  if (Array.isArray(node.children)) {
-    return node.children.some((child) => nodeContainsPage(child, targetPageId));
-  }
-
-  return node.pageId === targetPageId;
-}
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
@@ -368,7 +240,7 @@ export default function App() {
     const nodeId = node.id || node.title;
     const isExpanded = state.expandedNodes.includes(nodeId);
     const hasActivePage = nodeContainsPage(node, state.selectedPage?.id);
-    const childCount = countLeafPages(node.children);
+    const childCount = collectLeafPageIds(node.children, []).length;
 
     return (
       <section className={depth === 0 ? "tree-group" : "tree-subgroup"} key={nodeId}>
