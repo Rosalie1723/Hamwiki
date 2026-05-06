@@ -691,7 +691,7 @@ export default function App() {
             </div>
 
             <div className="controls">
-              <label htmlFor="search">关键词检索</label>
+              <label htmlFor="search">全局关键词检索</label>
               <input
                 id="search"
                 value={keyword}
