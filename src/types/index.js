@@ -5,7 +5,7 @@
  * @property {?string} pageId - 叶节点对应页面id
  * @property {string} title - 标题
  * @property {string} content - 内容
- * @property {?Array<Node>} children - 子节点数组
+ * @property {?Array<CatalogNode>} children - 子节点数组
  */
 
 /**
