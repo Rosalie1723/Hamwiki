@@ -8,6 +8,7 @@ import { preKnowledgeCatalog } from "./data/preKnowledgeCatalog";
 import { preKnowledgePages } from "./data/preKnowledgePages";
 import collaborationGuidelinesContent from "./content/collaboration/collaboration-guidelines.md?raw";
 
+import "./types"
 import { CopyablePreBlock } from "./components";
 import {
   toHeadingId,
@@ -30,22 +31,99 @@ const collaborationPage = {
 };
 
 export default function App() {
+  /**
+   * @type {[("home" | "preknowledge" | "wiki" | "collaboration"), Function]}
+   * activeView - 当前视图
+   */
   const [activeView, setActiveView] = useState("home");
+
+  /**
+   * @type {[string, Function]}
+   * keyword - 全局检索关键字
+   */
   const [keyword, setKeyword] = useState("");
+
+  /**
+   * @type {[string, Function]}
+   * articleKeyword - 文内检索关键字
+   */
   const [articleKeyword, setArticleKeyword] = useState("");
+
+  /**
+   * @type {[HTMLElement[], Function]}
+   * articleMatchElements - 匹配高亮
+   */
   const [articleMatchElements, setArticleMatchElements] = useState([]);
+
+  /**
+   * @type {[number, Function]}
+   * activeArticleMatchIndex - 当前匹配高亮的下标
+   */
   const [activeArticleMatchIndex, setActiveArticleMatchIndex] = useState(-1);
+
+  /**
+   * @type {[string, Function]}
+   * selectedPageId - wiki:当前页面id
+   */
   const [selectedPageId, setSelectedPageId] = useState(wikiPages[0]?.id || "");
+
+  /**
+   * @type {[string, Function]}
+   * expandedNodes - wiki:当前展开节点id
+   */
   const [expandedNodes, setExpandedNodes] = useState(() => collectExpandableIds(wikiCatalog));
+
+  /**
+   * @type {[string, Function]}
+   * preSelectedPageId - pre:当前页面id
+   */
   const [preSelectedPageId, setPreSelectedPageId] = useState(preKnowledgePages[0]?.id || "");
+
+  /**
+   * @type {[string, Function]}
+   * preExpandedNodes - pre:当前展开节点id
+   */
   const [preExpandedNodes, setPreExpandedNodes] = useState(() => collectExpandableIds(preKnowledgeCatalog));
+
+  /**
+   * @type {[HeadingNode[], Function]}
+   * articleHeadings - 文内标题对象数组
+   */
   const [articleHeadings, setArticleHeadings] = useState([]);
+
+  /**
+   * @type {[string, Function]}
+   * activeHeadingId - 活动文内标题
+   */
   const [activeHeadingId, setActiveHeadingId] = useState("");
+
+  /**
+   * @description 内容元素
+   * @type {React.RefObject<null>}
+   */
   const contentRef = useRef(null);
+
+  /**
+   * @description 正在跳转到文内标题
+   * @type {React.RefObject<boolean>}
+   */
   const isHeadingJumpingRef = useRef(false);
+
+  /**
+   * @description 跳转目标标题的id
+   * @type {React.RefObject<string>}
+   */
   const jumpTargetHeadingIdRef = useRef("");
+
+  /**
+   * @description 跳转计时器实例
+   * @type {React.RefObject<null>}
+   */
   const jumpLockTimerRef = useRef(null);
 
+  /**
+   * @description 清除跳转操作
+   */
   function clearHeadingJumpLock() {
     if (jumpLockTimerRef.current) {
       window.clearTimeout(jumpLockTimerRef.current);
@@ -56,22 +134,45 @@ export default function App() {
     jumpTargetHeadingIdRef.current = "";
   }
 
+  /**
+   * @description wiki:页面id到页面的散列表
+   * @type {Map<string, CatalogNode>}
+   */
   const pageById = useMemo(() => {
     return new Map(wikiPages.map((page) => [page.id, page]));
   }, []);
 
+  /**
+   * @description pre:页面id到页面的散列表
+   * @type {Map<string, CatalogNode>}
+   */
   const preKnowledgePageById = useMemo(() => {
     return new Map(preKnowledgePages.map((page) => [page.id, page]));
   }, []);
 
+  /**
+   * @description 全局关键词检索结果目录
+   */
   const filteredTree = useMemo(() => {
     return filterCatalogNodes(wikiCatalog, pageById, keyword);
   }, [keyword, pageById]);
 
+  /**
+   * @description pre:页面id数组
+   * @type {string[]}
+   */
   const preKnowledgeVisiblePageIds = useMemo(() => collectLeafPageIds(preKnowledgeCatalog, []), []);
 
+  /**
+   * @description wiki:检索结果页面id数组
+   * @type {string[]}
+   */
   const visiblePageIds = useMemo(() => collectLeafPageIds(filteredTree, []), [filteredTree]);
 
+  /**
+   * @description
+   * @type {{pre({children: HTMLElement, [p: string]: Object}): HTMLElement}}
+   */
   const markdownComponents = useMemo(
     () => ({
       pre({ children, ...props }) {
@@ -85,18 +186,27 @@ export default function App() {
     []
   );
 
+  /**
+   * wiki:当前页面不属于检索结果时，设置当前页面为空
+   */
   useEffect(() => {
     if (!visiblePageIds.includes(selectedPageId)) {
       setSelectedPageId(visiblePageIds[0] || "");
     }
   }, [visiblePageIds, selectedPageId]);
 
+  /**
+   * pre:当前页面不属于检索结果时，设置当前页面为空
+   */
   useEffect(() => {
     if (!preKnowledgeVisiblePageIds.includes(preSelectedPageId)) {
       setPreSelectedPageId(preKnowledgeVisiblePageIds[0] || "");
     }
   }, [preKnowledgeVisiblePageIds, preSelectedPageId]);
 
+  /**
+   * 切换页面时清空文内搜索关键字
+   */
   useEffect(() => {
     setArticleKeyword("");
   }, [selectedPageId]);
@@ -104,30 +214,37 @@ export default function App() {
   const selectedPage = pageById.get(selectedPageId) || pageById.get(visiblePageIds[0]) || null;
   const selectedPreKnowledgePage =
     preKnowledgePageById.get(preSelectedPageId) || preKnowledgePageById.get(preKnowledgeVisiblePageIds[0]) || null;
+
   const isWikiView = activeView === "wiki";
   const isCollaborationView = activeView === "collaboration";
   const isPreKnowledgeView = activeView === "preknowledge";
   const hasArticleTocView = isWikiView || isCollaborationView || isPreKnowledgeView;
-  const currentArticle = isWikiView
-    ? selectedPage
-    : isCollaborationView
-      ? collaborationPage
-      : isPreKnowledgeView
-        ? selectedPreKnowledgePage
+
+  const currentArticle = isWikiView ? selectedPage
+    : isCollaborationView ? collaborationPage
+      : isPreKnowledgeView ? selectedPreKnowledgePage
         : null;
 
+  /**
+   * 初始化
+   */
   useEffect(() => {
     return () => {
       clearHeadingJumpLock();
     };
   }, []);
 
+  /**
+   * 切换页面
+   */
   useEffect(() => {
+    // 清除跳转计时器
     if (!hasArticleTocView) {
       clearHeadingJumpLock();
       return;
     }
 
+    // home页
     if (!currentArticle) {
       clearHeadingJumpLock();
       setArticleHeadings([]);
@@ -135,10 +252,12 @@ export default function App() {
       return;
     }
 
+    // 获取所有标题元素
     const contentElement = contentRef.current;
     const renderedHeadings = contentElement
       ? Array.from(contentElement.querySelectorAll(".markdown-body h2, .markdown-body h3, .markdown-body h4"))
       : [];
+    console.log(renderedHeadings);
 
     if (renderedHeadings.length === 0) {
       clearHeadingJumpLock();
@@ -149,9 +268,27 @@ export default function App() {
 
     const duplicatedHeadingCounter = new Map();
     const nextHeadings = renderedHeadings.map((element) => {
+      /**
+       * @type {number}
+       * @description 标题等级
+       */
       const level = Number(element.tagName.replace("H", ""));
+
+      /**
+       * @type {string}
+       * @description 标题文本
+       */
       const text = getHeadingText(element.textContent || "");
+      console.log(element.textContent)
+
+      /**
+       * 标题id
+       */
       const baseId = toHeadingId(text);
+
+      /**
+       * 标题出现计数
+       */
       const duplicateCount = (duplicatedHeadingCounter.get(baseId) || 0) + 1;
       duplicatedHeadingCounter.set(baseId, duplicateCount);
 
@@ -161,6 +298,7 @@ export default function App() {
       return { id, level, text };
     });
 
+    console.log(nextHeadings)
     setArticleHeadings(nextHeadings);
     setActiveHeadingId((currentId) => {
       if (currentId && nextHeadings.some((heading) => heading.id === currentId)) {
@@ -169,6 +307,10 @@ export default function App() {
       return nextHeadings[0].id;
     });
 
+    /**
+     * @description 随页面滚动切换活动文内标题
+     * @type {IntersectionObserver}
+     */
     const observer = new IntersectionObserver(
       (entries) => {
         const visibleEntry = entries
@@ -206,7 +348,13 @@ export default function App() {
     return () => observer.disconnect();
   }, [hasArticleTocView, currentArticle?.id, currentArticle?.content]);
 
+  /**
+   * @description 切换目录节点展开状态
+   * @param {string} nodeId - 目标节点id
+   * @param {Function} setNodes - 根据节点所属视图调用对应setter
+   */
   function toggleNode(nodeId, setNodes) {
+    // setExpandedNodes | setPreExpandedNodes
     setNodes((current) => {
       if (current.includes(nodeId)) {
         return current.filter((item) => item !== nodeId);
@@ -215,9 +363,17 @@ export default function App() {
     });
   }
 
+  /**
+   * @description 渲染根节点及其后代
+   * @param {CatalogNode} node - 根节点
+   * @param state - 状态
+   * @param {number} depth - 当前深度
+   * @returns {JSX.Element|null}
+   */
   function renderTreeNode(node, state, depth = 0) {
     const isBranch = Array.isArray(node.children);
 
+    // 叶节点
     if (!isBranch) {
       const page = state.pageById.get(node.pageId);
       if (!page) {
@@ -237,6 +393,7 @@ export default function App() {
       );
     }
 
+    // 非叶节点
     const nodeId = node.id || node.title;
     const isExpanded = state.expandedNodes.includes(nodeId);
     const hasActivePage = nodeContainsPage(node, state.selectedPage?.id);
@@ -267,6 +424,10 @@ export default function App() {
     );
   }
 
+  /**
+   * @description 跳转到目标文内标题
+   * @param {string} id - 目标文内标题id
+   */
   function jumpToHeading(id) {
     const element = document.getElementById(id);
     if (!element) {
@@ -286,6 +447,9 @@ export default function App() {
     element.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  /**
+   * 文内检索初始化
+   */
   useEffect(() => {
     const contentElement = contentRef.current?.querySelector(".markdown-body");
 
@@ -295,6 +459,7 @@ export default function App() {
       return;
     }
 
+    // 取消高亮
     const existingMarks = contentElement.querySelectorAll("mark.article-hit");
     existingMarks.forEach((mark) => {
       const parent = mark.parentNode;
@@ -313,6 +478,7 @@ export default function App() {
       return;
     }
 
+    // 设置新高亮
     const matcher = new RegExp(escapeRegExp(normalizedKeyword), "gi");
     const walker = document.createTreeWalker(contentElement, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -376,6 +542,9 @@ export default function App() {
     setActiveArticleMatchIndex(nextMatches.length > 0 ? 0 : -1);
   }, [articleKeyword, isWikiView, selectedPage]);
 
+  /**
+   * 切换焦点高亮
+   */
   useEffect(() => {
     articleMatchElements.forEach((element, index) => {
       element.classList.toggle("article-hit-active", index === activeArticleMatchIndex);
@@ -387,6 +556,10 @@ export default function App() {
     }
   }, [articleMatchElements, activeArticleMatchIndex]);
 
+  /**
+   * @description 切换高亮
+   * @param {number} step
+   */
   function jumpToArticleMatch(step) {
     if (articleMatchElements.length === 0) {
       return;
@@ -399,6 +572,10 @@ export default function App() {
     });
   }
 
+  /**
+   * @description 右侧文内目录
+   * @type {JSX.Element}
+   */
   const tocPanel = (
     <aside className="toc panel" aria-label="文章标题导航">
       {articleHeadings.length === 0 ? (
