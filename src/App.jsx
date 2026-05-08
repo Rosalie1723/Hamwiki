@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
@@ -19,6 +19,7 @@ import {
   collectLeafPageIds,
   nodeContainsPage
 } from "./utils";
+import { useView } from "./hooks"
 
 const developmentOrganizations = ["同济大学业余无线电协会", "杭州市艮山中学业余无线电社"];
 const developers = ["BH4HVT", "BH4GZK", "Hello-world150"];
@@ -31,12 +32,7 @@ const collaborationPage = {
 };
 
 export default function App() {
-  /**
-   * @type {[("home" | "preknowledge" | "wiki" | "collaboration"), Function]}
-   * activeView - 当前视图
-   */
-  const [activeView, setActiveView] = useState("home");
-
+  const { activeView, setActiveView, hasTocView } = useView();
   /**
    * @type {[string, Function]}
    * keyword - 全局检索关键字
@@ -218,7 +214,6 @@ export default function App() {
   const isWikiView = activeView === "wiki";
   const isCollaborationView = activeView === "collaboration";
   const isPreKnowledgeView = activeView === "preknowledge";
-  const hasArticleTocView = isWikiView || isCollaborationView || isPreKnowledgeView;
 
   const currentArticle = isWikiView ? selectedPage
     : isCollaborationView ? collaborationPage
@@ -239,7 +234,7 @@ export default function App() {
    */
   useEffect(() => {
     // 清除跳转计时器
-    if (!hasArticleTocView) {
+    if (!hasTocView) {
       clearHeadingJumpLock();
       return;
     }
@@ -345,7 +340,7 @@ export default function App() {
     });
 
     return () => observer.disconnect();
-  }, [hasArticleTocView, currentArticle?.id, currentArticle?.content]);
+  }, [hasTocView, currentArticle?.id, currentArticle?.content]);
 
   /**
    * @description 切换目录节点展开状态
