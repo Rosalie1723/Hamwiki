@@ -1,1 +1,2 @@
-export {CopyablePreBlock} from './CopyablePreBlock'
+export { CopyablePreBlock } from "./CopyablePreBlock";
+export { TocPanel } from './TocPanel';

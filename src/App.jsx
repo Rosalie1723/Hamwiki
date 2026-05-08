@@ -9,7 +9,7 @@ import { preKnowledgePages } from "./data/preKnowledgePages";
 import collaborationGuidelinesContent from "./content/collaboration/collaboration-guidelines.md?raw";
 
 import "./types"
-import { CopyablePreBlock } from "./components";
+import { CopyablePreBlock, TocPanel } from "./components";
 import {
   toHeadingId,
   getHeadingText,
@@ -18,7 +18,7 @@ import {
   collectLeafPageIds,
   nodeContainsPage
 } from "./utils";
-import { useView, usePage, useKeyword } from "./hooks"
+import { useView, usePage, useKeyword, useHeading } from "./hooks";
 
 const developmentOrganizations = ["同济大学业余无线电协会", "杭州市艮山中学业余无线电社"];
 const developers = ["BH4HVT", "BH4GZK", "Hello-world150"];
@@ -31,9 +31,10 @@ const collaborationPage = {
 };
 
 export default function App() {
-  const { activeView, setActiveView, hasTocView } = useView();
+  const { activeView, setActiveView } = useView();
   const { keyword, setKeyword, filteredTree } = useKeyword();
   const { selectedPage, setSelectedPageId, visiblePageIds } = usePage();
+  const { clearHeadingJumpLock, setArticleHeadings, setActiveHeadingId, isHeadingJumpingRef, jumpTargetHeadingIdRef, jumpToHeading, articleHeadings, activeHeadingId } = useHeading();
 
   /**
    * @type {[string, Function]}
@@ -72,55 +73,10 @@ export default function App() {
   const [preExpandedNodes, setPreExpandedNodes] = useState(() => collectExpandableIds(preKnowledgeCatalog));
 
   /**
-   * @type {[Array<HeadingNode>, Function]}
-   * articleHeadings - 文内标题对象数组
-   */
-  const [articleHeadings, setArticleHeadings] = useState([]);
-
-  /**
-   * @type {[string, Function]}
-   * activeHeadingId - 活动文内标题
-   */
-  const [activeHeadingId, setActiveHeadingId] = useState("");
-
-  /**
    * @description 内容元素
    * @type {React.RefObject<null>}
    */
   const contentRef = useRef(null);
-
-  /**
-   * @description 正在跳转到文内标题
-   * @type {React.RefObject<boolean>}
-   */
-  const isHeadingJumpingRef = useRef(false);
-
-  /**
-   * @description 跳转目标标题的id
-   * @type {React.RefObject<string>}
-   */
-  const jumpTargetHeadingIdRef = useRef("");
-
-  /**
-   * @description 跳转计时器实例
-   * @type {React.RefObject<null>}
-   */
-  const jumpLockTimerRef = useRef(null);
-
-  /**
-   * @description 清除跳转操作
-   */
-  function clearHeadingJumpLock() {
-    if (jumpLockTimerRef.current) {
-      window.clearTimeout(jumpLockTimerRef.current);
-      jumpLockTimerRef.current = null;
-    }
-
-    isHeadingJumpingRef.current = false;
-    jumpTargetHeadingIdRef.current = "";
-  }
-
-
 
   /**
    * @description pre:页面id到页面的散列表
@@ -129,8 +85,6 @@ export default function App() {
   const preKnowledgePageById = useMemo(() => {
     return new Map(preKnowledgePages.map((page) => [page.id, page]));
   }, []);
-
-
 
   /**
    * @description pre:页面id数组
@@ -184,32 +138,9 @@ export default function App() {
         : null;
 
   /**
-   * 初始化
-   */
-  useEffect(() => {
-    return () => {
-      clearHeadingJumpLock();
-    };
-  }, []);
-
-  /**
    * 切换页面
    */
   useEffect(() => {
-    // 清除跳转计时器
-    if (!hasTocView) {
-      clearHeadingJumpLock();
-      return;
-    }
-
-    // home页
-    if (!currentArticle) {
-      clearHeadingJumpLock();
-      setArticleHeadings([]);
-      setActiveHeadingId("");
-      return;
-    }
-
     // 获取所有标题元素
     const contentElement = contentRef.current;
     const renderedHeadings = contentElement
@@ -245,7 +176,7 @@ export default function App() {
 
       /**
        * @description 标题出现计数
-       * @type {Map<string, number>}
+       * @type {number}
        */
       const duplicateCount = (duplicatedHeadingCounter.get(baseId) || 0) + 1;
       duplicatedHeadingCounter.set(baseId, duplicateCount);
@@ -267,6 +198,7 @@ export default function App() {
     /**
      * @description 随页面滚动切换活动文内标题
      * @type {IntersectionObserver}
+     * @todo 消抖
      */
     const observer = new IntersectionObserver(
       (entries) => {
@@ -303,7 +235,7 @@ export default function App() {
     });
 
     return () => observer.disconnect();
-  }, [hasTocView, currentArticle?.id, currentArticle?.content]);
+  }, [currentArticle?.id, currentArticle?.content]); // 删除 hasTocView
 
   /**
    * @description 切换目录节点展开状态
@@ -379,29 +311,6 @@ export default function App() {
         ) : null}
       </section>
     );
-  }
-
-  /**
-   * @description 跳转到目标文内标题
-   * @param {string} id - 目标文内标题id
-   */
-  function jumpToHeading(id) {
-    const element = document.getElementById(id);
-    if (!element) {
-      return;
-    }
-
-    isHeadingJumpingRef.current = true;
-    jumpTargetHeadingIdRef.current = id;
-    if (jumpLockTimerRef.current) {
-      window.clearTimeout(jumpLockTimerRef.current);
-    }
-    jumpLockTimerRef.current = window.setTimeout(() => {
-      clearHeadingJumpLock();
-    }, 1500);
-
-    setActiveHeadingId(id);
-    element.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   /**
@@ -528,35 +437,6 @@ export default function App() {
       return (nextIndex % total + total) % total;
     });
   }
-
-  /**
-   * @description 右侧文内目录
-   * @type {JSX.Element}
-   */
-  const tocPanel = (
-    <aside className="toc panel" aria-label="文章标题导航">
-      {articleHeadings.length === 0 ? (
-        <p className="empty">当前页面暂无可导航的小节标题。</p>
-      ) : (
-        <nav className="toc-list">
-          {articleHeadings.map((heading) => (
-            <button
-              key={heading.id}
-              type="button"
-              className={
-                activeHeadingId === heading.id
-                  ? `toc-item level-${heading.level} active`
-                  : `toc-item level-${heading.level}`
-              }
-              onClick={() => jumpToHeading(heading.id)}
-            >
-              {heading.text}
-            </button>
-          ))}
-        </nav>
-      )}
-    </aside>
-  );
 
   return (
     <div className="site-shell">
@@ -686,7 +566,9 @@ export default function App() {
             )}
           </main>
 
-          {tocPanel}
+          <TocPanel articleHeadings={articleHeadings}
+                    activeHeadingId={activeHeadingId}
+                    jumpToHeading={jumpToHeading}/>
         </div>
       ) : activeView === "wiki" ? (
         <div className="app-shell">
@@ -789,7 +671,10 @@ export default function App() {
             )}
           </main>
 
-          {tocPanel}
+          <TocPanel articleHeadings={articleHeadings}
+                    activeHeadingId={activeHeadingId}
+                    jumpToHeading={jumpToHeading}/>
+
         </div>
       ) : (
         <div className="collaboration-shell">
@@ -809,7 +694,10 @@ export default function App() {
             </article>
           </main>
 
-          {tocPanel}
+          <TocPanel articleHeadings={articleHeadings}
+                    activeHeadingId={activeHeadingId}
+                    jumpToHeading={jumpToHeading}/>
+
         </div>
       )}
     </div>
