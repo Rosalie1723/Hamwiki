@@ -1,9 +1,9 @@
 import { includesKeyword } from './includesKeyword.js'
 
-export function filterCatalogNodes(nodes, pageById, keyword) {
+export function filterPageNodes(nodes, pageById, keyword) {
   return nodes.reduce((accumulator, node) => {
     if (Array.isArray(node.children)) {
-      const filteredChildren = filterCatalogNodes(node.children, pageById, keyword);
+      const filteredChildren = filterPageNodes(node.children, pageById, keyword);
       if (filteredChildren.length > 0) {
         accumulator.push({
           ...node,

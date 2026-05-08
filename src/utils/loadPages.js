@@ -2,9 +2,9 @@ import { collectLeafPageIds, collectLeafTitles, extractPageId } from '../utils'
 
 /**
  * @description 加载全部文章
- * @param {CatalogNode} catalog - 目录根节点
+ * @param {PageNode} catalog - 目录根节点
  * @param {Object} markdownModules
- * @returns {Array<CatalogNode>} 目录叶节点
+ * @returns {Array<PageNode>} 目录叶节点
  */
 export function loadPages(catalog, markdownModules) {
 

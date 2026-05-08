@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
 import { wikiCatalog } from "./data/wikiCatalog";
-import { wikiPages } from "./data/wikiPages";
+import { pageById } from './data/wikiPages'
 import { preKnowledgeCatalog } from "./data/preKnowledgeCatalog";
 import { preKnowledgePages } from "./data/preKnowledgePages";
 import collaborationGuidelinesContent from "./content/collaboration/collaboration-guidelines.md?raw";
@@ -14,12 +14,11 @@ import {
   toHeadingId,
   getHeadingText,
   escapeRegExp,
-  filterCatalogNodes,
   collectExpandableIds,
   collectLeafPageIds,
   nodeContainsPage
 } from "./utils";
-import { useView } from "./hooks"
+import { useView, usePage, useKeyword } from "./hooks"
 
 const developmentOrganizations = ["同济大学业余无线电协会", "杭州市艮山中学业余无线电社"];
 const developers = ["BH4HVT", "BH4GZK", "Hello-world150"];
@@ -33,11 +32,8 @@ const collaborationPage = {
 
 export default function App() {
   const { activeView, setActiveView, hasTocView } = useView();
-  /**
-   * @type {[string, Function]}
-   * keyword - 全局检索关键字
-   */
-  const [keyword, setKeyword] = useState("");
+  const { keyword, setKeyword, filteredTree } = useKeyword();
+  const { selectedPage, setSelectedPageId, visiblePageIds } = usePage();
 
   /**
    * @type {[string, Function]}
@@ -56,12 +52,6 @@ export default function App() {
    * activeArticleMatchIndex - 当前匹配高亮的下标
    */
   const [activeArticleMatchIndex, setActiveArticleMatchIndex] = useState(-1);
-
-  /**
-   * @type {[string, Function]}
-   * selectedPageId - wiki:当前页面id
-   */
-  const [selectedPageId, setSelectedPageId] = useState(wikiPages[0]?.id || "");
 
   /**
    * @type {[string, Function]}
@@ -130,40 +120,23 @@ export default function App() {
     jumpTargetHeadingIdRef.current = "";
   }
 
-  /**
-   * @description wiki:页面id到页面的散列表
-   * @type {Map<string, CatalogNode>}
-   */
-  const pageById = useMemo(() => {
-    return new Map(wikiPages.map((page) => [page.id, page]));
-  }, []);
+
 
   /**
    * @description pre:页面id到页面的散列表
-   * @type {Map<string, CatalogNode>}
+   * @type {Map<string, PageNode>}
    */
   const preKnowledgePageById = useMemo(() => {
     return new Map(preKnowledgePages.map((page) => [page.id, page]));
   }, []);
 
-  /**
-   * @description 全局关键词检索结果目录
-   */
-  const filteredTree = useMemo(() => {
-    return filterCatalogNodes(wikiCatalog, pageById, keyword);
-  }, [keyword, pageById]);
+
 
   /**
    * @description pre:页面id数组
    * @type {string[]}
    */
   const preKnowledgeVisiblePageIds = useMemo(() => collectLeafPageIds(preKnowledgeCatalog, []), []);
-
-  /**
-   * @description wiki:检索结果页面id数组
-   * @type {string[]}
-   */
-  const visiblePageIds = useMemo(() => collectLeafPageIds(filteredTree, []), [filteredTree]);
 
   /**
    * @description
@@ -183,15 +156,6 @@ export default function App() {
   );
 
   /**
-   * wiki:当前页面不属于检索结果时，设置当前页面为空
-   */
-  useEffect(() => {
-    if (!visiblePageIds.includes(selectedPageId)) {
-      setSelectedPageId(visiblePageIds[0] || "");
-    }
-  }, [visiblePageIds, selectedPageId]);
-
-  /**
    * pre:当前页面不属于检索结果时，设置当前页面为空
    */
   useEffect(() => {
@@ -205,9 +169,8 @@ export default function App() {
    */
   useEffect(() => {
     setArticleKeyword("");
-  }, [selectedPageId]);
+  }, [selectedPage]);
 
-  const selectedPage = pageById.get(selectedPageId) || pageById.get(visiblePageIds[0]) || null;
   const selectedPreKnowledgePage =
     preKnowledgePageById.get(preSelectedPageId) || preKnowledgePageById.get(preKnowledgeVisiblePageIds[0]) || null;
 
@@ -359,7 +322,7 @@ export default function App() {
 
   /**
    * @description 渲染根节点及其后代
-   * @param {CatalogNode} node - 根节点
+   * @param {PageNode} node - 根节点
    * @param state - 状态
    * @param {number} depth - 当前深度
    * @returns {JSX.Element|null}

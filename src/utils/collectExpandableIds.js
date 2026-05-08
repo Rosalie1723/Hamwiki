@@ -1,5 +1,5 @@
 /**
- * @param {Array<CatalogNode>} nodes - 搜索的根节点
+ * @param {Array<PageNode>} nodes - 搜索的根节点
  * @param {string[]} collector - 末尾接收搜索结果
  * @returns {string[]} 非叶节点的id数组
  */
