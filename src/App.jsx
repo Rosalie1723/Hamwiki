@@ -50,7 +50,7 @@ export default function App() {
   const [articleKeyword, setArticleKeyword] = useState("");
 
   /**
-   * @type {[HTMLElement[], Function]}
+   * @type {[Array<HTMLElement>, Function]}
    * articleMatchElements - 匹配高亮
    */
   const [articleMatchElements, setArticleMatchElements] = useState([]);
@@ -86,7 +86,7 @@ export default function App() {
   const [preExpandedNodes, setPreExpandedNodes] = useState(() => collectExpandableIds(preKnowledgeCatalog));
 
   /**
-   * @type {[HeadingNode[], Function]}
+   * @type {[Array<HeadingNode>, Function]}
    * articleHeadings - 文内标题对象数组
    */
   const [articleHeadings, setArticleHeadings] = useState([]);
@@ -257,7 +257,6 @@ export default function App() {
     const renderedHeadings = contentElement
       ? Array.from(contentElement.querySelectorAll(".markdown-body h2, .markdown-body h3, .markdown-body h4"))
       : [];
-    console.log(renderedHeadings);
 
     if (renderedHeadings.length === 0) {
       clearHeadingJumpLock();
@@ -269,25 +268,26 @@ export default function App() {
     const duplicatedHeadingCounter = new Map();
     const nextHeadings = renderedHeadings.map((element) => {
       /**
-       * @type {number}
        * @description 标题等级
+       * @type {number}
        */
       const level = Number(element.tagName.replace("H", ""));
 
       /**
-       * @type {string}
        * @description 标题文本
+       * @type {string}
        */
       const text = getHeadingText(element.textContent || "");
-      console.log(element.textContent)
 
       /**
-       * 标题id
+       * @description 标题id
+       * @type {string}
        */
       const baseId = toHeadingId(text);
 
       /**
-       * 标题出现计数
+       * @description 标题出现计数
+       * @type {Map<string, number>}
        */
       const duplicateCount = (duplicatedHeadingCounter.get(baseId) || 0) + 1;
       duplicatedHeadingCounter.set(baseId, duplicateCount);
@@ -298,7 +298,6 @@ export default function App() {
       return { id, level, text };
     });
 
-    console.log(nextHeadings)
     setArticleHeadings(nextHeadings);
     setActiveHeadingId((currentId) => {
       if (currentId && nextHeadings.some((heading) => heading.id === currentId)) {
